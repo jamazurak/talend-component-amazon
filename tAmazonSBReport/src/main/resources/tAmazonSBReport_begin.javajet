@@ -1,0 +1,67 @@
+<%@ jet
+        imports="
+		org.talend.core.model.process.INode
+		org.talend.core.model.process.ElementParameterParser
+		org.talend.core.model.metadata.IMetadataTable
+		org.talend.core.model.metadata.IMetadataColumn
+		org.talend.core.model.process.IConnection
+		org.talend.core.model.process.IConnectionCategory
+		org.talend.designer.codegen.config.CodeGeneratorArgument
+		org.talend.core.model.metadata.types.JavaTypesManager
+		org.talend.core.model.metadata.types.JavaType
+		java.util.List
+    	java.util.Map
+	"
+%>
+<%
+    CodeGeneratorArgument codeGenArgument = (CodeGeneratorArgument) argument;
+    INode node = (INode) codeGenArgument.getArgument();
+    String cid = node.getUniqueName();
+
+    String accessToken = ElementParameterParser.getValue(node, "__ACCESS_TOKEN__");
+    String refreshToken = ElementParameterParser.getValue(node, "__REFRESH_SECRET__");
+    String clientId = ElementParameterParser.getValue(node, "__CLIENT_ID__");
+    String profileId = ElementParameterParser.getValue(node, "__PROFILE_ID__");
+    String outputBaseDir = ElementParameterParser.getValue(node, "__OUTPUT_BASE_DIR__");
+    String outputFilePrefix = ElementParameterParser.getValue(node, "__OUTPUT_FILE_PREFIX__");
+    String recordType = ElementParameterParser.getValue(node, "__RECORD_TYPE__");
+    String reportDate = ElementParameterParser.getValue(node, "__REPORT_DATE__");
+    String segment = ElementParameterParser.getValue(node, "__SEGMENT__");
+    List<Map<String,String>> metrics = (List<Map<String,String>>)ElementParameterParser.getObjectValue(node, "__METRICS__");
+
+    String logLevel = ElementParameterParser.getValue(node, "__LOG_LEVEL__");
+    String timeout = ElementParameterParser.getValue(node, "__TIMEOUT__");
+%>
+
+java.time.format.DateTimeFormatter formatter_<%=cid%> = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+java.time.LocalDateTime reportDate_<%=cid%> = java.time.LocalDateTime.from(formatter_<%=cid%>.parse(<%=reportDate%>));
+
+// Process entityIds
+java.util.Set<String> metrics_<%=cid%> = new java.util.HashSet<>();
+<%
+    for(Map<String, String> field: metrics) {
+%>
+        metrics_<%=cid%>.add("<%=field.get("ID")%>");
+<%
+    }
+%>
+
+com.essencedigital.talend.component.parameters.AmazonParametersSponsoredBrands parameters_<%=cid%> =
+    new com.essencedigital.talend.component.parameters.AmazonParametersSponsoredBrands(
+        <%=accessToken%>, <%=refreshToken%>, <%=clientId%>, <%=profileId%>,
+        <%=outputBaseDir%>, <%=outputFilesPrefix%>,
+        <%recordType%>, reportDate_<%=cid%>,
+        <%segment%>, metrics_<%=cid%>,
+        Integer.valueOf(<%=timeout%>)
+    );
+
+byte[] bytes = parameters_<%=cid%>.convertToBytes();
+
+com.essencedigital.common.library.LibraryLoad libLoad_<%=cid %> = new com.essencedigital.common.library.LibraryLoad("amazon-client-0.0.1-SNAPSHOT");
+java.lang.Object result_<%=cid %> = libLoad_<%=cid %>.runWithParam("com.essencedigital.talend.component.AmazonSBReportComponent", "<%=logLevel%>", "getReport", bytes);
+
+com.essencedigital.common.result.ReportStatus status_<%=cid %> = new com.essencedigital.common.result.ReportStatus(result_<%=cid %>);
+
+globalMap.put("<%=cid%>_STATUS_CODE", status_<%=cid %>.getStatusCode());
+globalMap.put("<%=cid%>_FILE_NAME", status_<%=cid %>.getFileNames());
+globalMap.put("<%=cid%>_ERROR_MESSAGE", status_<%=cid %>.getErrorMessage());
